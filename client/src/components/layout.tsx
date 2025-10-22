@@ -86,65 +86,77 @@ export default function Layout({ children }: LayoutProps) {
         {/* Sidebar */}
         <aside className="w-64 bg-card border-r border-border h-screen fixed left-0 top-16 overflow-y-auto">
           <nav className="p-4 space-y-2">
-            <Link href="/">
-              <a className={`flex items-center space-x-3 px-3 py-2 rounded-md transition-colors ${
+            <Link 
+              href="/" 
+              className={`flex items-center space-x-3 px-3 py-2 rounded-md transition-colors ${
                 isActive('/') 
                   ? 'bg-primary text-primary-foreground' 
                   : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-              }`} data-testid="nav-dashboard">
-                <i className="fas fa-tachometer-alt"></i>
-                <span>Dashboard</span>
-              </a>
+              }`} 
+              data-testid="nav-dashboard"
+            >
+              <i className="fas fa-tachometer-alt"></i>
+              <span>Dashboard</span>
             </Link>
-            <Link href="/buses">
-              <a className={`flex items-center space-x-3 px-3 py-2 rounded-md transition-colors ${
+            <Link 
+              href="/buses" 
+              className={`flex items-center space-x-3 px-3 py-2 rounded-md transition-colors ${
                 isActive('/buses') 
                   ? 'bg-primary text-primary-foreground' 
                   : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-              }`} data-testid="nav-buses">
-                <i className="fas fa-bus"></i>
-                <span>Bus Management</span>
-              </a>
+              }`} 
+              data-testid="nav-buses"
+            >
+              <i className="fas fa-bus"></i>
+              <span>Bus Management</span>
             </Link>
-            <Link href="/stations">
-              <a className={`flex items-center space-x-3 px-3 py-2 rounded-md transition-colors ${
+            <Link 
+              href="/stations" 
+              className={`flex items-center space-x-3 px-3 py-2 rounded-md transition-colors ${
                 isActive('/stations') 
                   ? 'bg-primary text-primary-foreground' 
                   : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-              }`} data-testid="nav-stations">
-                <i className="fas fa-map-marker-alt"></i>
-                <span>Stations</span>
-              </a>
+              }`} 
+              data-testid="nav-stations"
+            >
+              <i className="fas fa-map-marker-alt"></i>
+              <span>Stations</span>
             </Link>
-            <Link href="/video">
-              <a className={`flex items-center space-x-3 px-3 py-2 rounded-md transition-colors ${
+            <Link 
+              href="/video" 
+              className={`flex items-center space-x-3 px-3 py-2 rounded-md transition-colors ${
                 isActive('/video') 
                   ? 'bg-primary text-primary-foreground' 
                   : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-              }`} data-testid="nav-video">
-                <i className="fas fa-video"></i>
-                <span>Video Monitoring</span>
-              </a>
+              }`} 
+              data-testid="nav-video"
+            >
+              <i className="fas fa-video"></i>
+              <span>Video Monitoring</span>
             </Link>
-            <Link href="/alerts">
-              <a className={`flex items-center space-x-3 px-3 py-2 rounded-md transition-colors ${
+            <Link 
+              href="/alerts" 
+              className={`flex items-center space-x-3 px-3 py-2 rounded-md transition-colors ${
                 isActive('/alerts') 
                   ? 'bg-primary text-primary-foreground' 
                   : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-              }`} data-testid="nav-alerts">
-                <i className="fas fa-exclamation-triangle"></i>
-                <span>Alerts</span>
-              </a>
+              }`} 
+              data-testid="nav-alerts"
+            >
+              <i className="fas fa-exclamation-triangle"></i>
+              <span>Alerts</span>
             </Link>
-            <Link href="/settings">
-              <a className={`flex items-center space-x-3 px-3 py-2 rounded-md transition-colors ${
+            <Link 
+              href="/settings" 
+              className={`flex items-center space-x-3 px-3 py-2 rounded-md transition-colors ${
                 isActive('/settings') 
                   ? 'bg-primary text-primary-foreground' 
                   : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-              }`} data-testid="nav-settings">
-                <i className="fas fa-cog"></i>
-                <span>Settings</span>
-              </a>
+              }`} 
+              data-testid="nav-settings"
+            >
+              <i className="fas fa-cog"></i>
+              <span>Settings</span>
             </Link>
           </nav>
 
