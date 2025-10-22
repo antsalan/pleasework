@@ -4,6 +4,10 @@ import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { passengerCountUpdateSchema, insertBusSchema, insertStationSchema } from "@shared/schema";
 import { z } from "zod";
+import multer from "multer";
+import { spawn } from "child_process";
+import path from "path";
+import fs from "fs";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
@@ -253,6 +257,171 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(stats);
     } catch (error) {
       res.status(500).json({ message: 'Failed to get dashboard stats' });
+    }
+  });
+
+  // Video processing routes
+  const upload = multer({ 
+    dest: 'uploads/',
+    limits: { fileSize: 100 * 1024 * 1024 } // 100MB limit
+  });
+
+  // Store active video processing jobs
+  const activeJobs = new Map<string, any>();
+
+  app.post('/api/video/upload', upload.single('video'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: 'No video file provided' });
+      }
+
+      const busId = req.body.busId || 'BUS-001';
+      const jobId = `${busId}-${Date.now()}`;
+      
+      activeJobs.set(jobId, {
+        busId,
+        status: 'uploaded',
+        videoPath: req.file.path,
+        uploadedAt: new Date(),
+        totalIn: 0,
+        totalOut: 0,
+        currentPassengers: 0
+      });
+
+      res.json({ 
+        jobId, 
+        message: 'Video uploaded successfully',
+        busId 
+      });
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to upload video' });
+    }
+  });
+
+  app.post('/api/video/process/:jobId', async (req, res) => {
+    try {
+      const { jobId } = req.params;
+      const job = activeJobs.get(jobId);
+
+      if (!job) {
+        return res.status(404).json({ message: 'Job not found' });
+      }
+
+      job.status = 'processing';
+      
+      // Start Python people counter script
+      const pythonProcess = spawn('python3', [
+        'people_counter_client.py',
+        '--bus-id', job.busId,
+        '--input', job.videoPath,
+        '--output', 'output.avi',
+        '--skip-frames', '30'
+      ]);
+
+      pythonProcess.stdout.on('data', (data) => {
+        const output = data.toString();
+        console.log(`Video processing: ${output}`);
+        
+        // Parse output for passenger counts
+        const inMatch = output.match(/Total people moving in: (\d+)/);
+        const outMatch = output.match(/Total people moving out: (\d+)/);
+        
+        if (inMatch) job.totalIn = parseInt(inMatch[1]);
+        if (outMatch) job.totalOut = parseInt(outMatch[1]);
+        job.currentPassengers = job.totalIn - job.totalOut;
+
+        // Broadcast updates via WebSocket
+        broadcast({
+          type: 'video_processing_update',
+          data: {
+            jobId,
+            busId: job.busId,
+            totalIn: job.totalIn,
+            totalOut: job.totalOut,
+            currentPassengers: job.currentPassengers
+          }
+        });
+      });
+
+      pythonProcess.stderr.on('data', (data) => {
+        console.error(`Video processing error: ${data}`);
+      });
+
+      pythonProcess.on('close', (code) => {
+        job.status = code === 0 ? 'completed' : 'failed';
+        job.completedAt = new Date();
+        
+        broadcast({
+          type: 'video_processing_complete',
+          data: {
+            jobId,
+            busId: job.busId,
+            status: job.status,
+            totalIn: job.totalIn,
+            totalOut: job.totalOut,
+            currentPassengers: job.currentPassengers
+          }
+        });
+      });
+
+      res.json({ 
+        message: 'Video processing started',
+        jobId 
+      });
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to start video processing' });
+    }
+  });
+
+  app.get('/api/video/status/:jobId', async (req, res) => {
+    try {
+      const { jobId } = req.params;
+      const job = activeJobs.get(jobId);
+
+      if (!job) {
+        return res.status(404).json({ message: 'Job not found' });
+      }
+
+      res.json(job);
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to get job status' });
+    }
+  });
+
+  // Process sample video endpoint
+  app.post('/api/video/process-sample', async (req, res) => {
+    try {
+      const busId = req.body.busId || 'BUS-001';
+      const sampleVideoPath = 'test_1_1757778577870.mp4';
+      
+      // Check if sample video exists
+      if (!fs.existsSync(sampleVideoPath)) {
+        // Try attached_assets folder
+        const attachedPath = path.join('attached_assets', 'test_1_1757778577870.mp4');
+        if (!fs.existsSync(attachedPath)) {
+          return res.status(404).json({ message: 'Sample video not found' });
+        }
+      }
+
+      const jobId = `${busId}-sample-${Date.now()}`;
+      
+      activeJobs.set(jobId, {
+        busId,
+        status: 'processing',
+        videoPath: sampleVideoPath,
+        uploadedAt: new Date(),
+        totalIn: 0,
+        totalOut: 0,
+        currentPassengers: 0
+      });
+
+      res.json({ 
+        jobId, 
+        message: 'Sample video processing started',
+        busId 
+      });
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to process sample video' });
     }
   });
 
