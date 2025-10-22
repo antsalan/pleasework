@@ -28,39 +28,40 @@ export default function VideoMonitorPage() {
   const { toast } = useToast();
   const { isConnected } = useWebSocket();
 
-  // Listen for WebSocket updates
+  // Listen for WebSocket updates via polling (will be replaced by WebSocket events)
   useEffect(() => {
-    if (!isConnected) return;
+    if (!currentJobId || !isProcessing) return;
 
-    const ws = new WebSocket(`ws://${window.location.host}/ws`);
+    const interval = setInterval(async () => {
+      try {
+        const response = await fetch(`/api/video/status/${currentJobId}`);
+        if (response.ok) {
+          const data = await response.json();
+          
+          if (data.totalIn !== undefined) {
+            setStats({
+              totalIn: data.totalIn,
+              totalOut: data.totalOut,
+              currentPassengers: data.currentPassengers,
+              status: data.status
+            });
+          }
 
-    ws.onmessage = (event) => {
-      const message = JSON.parse(event.data);
-      
-      if (message.type === 'video_processing_update') {
-        setStats({
-          totalIn: message.data.totalIn,
-          totalOut: message.data.totalOut,
-          currentPassengers: message.data.currentPassengers,
-          status: 'processing'
-        });
-      } else if (message.type === 'video_processing_complete') {
-        setStats({
-          totalIn: message.data.totalIn,
-          totalOut: message.data.totalOut,
-          currentPassengers: message.data.currentPassengers,
-          status: message.data.status
-        });
-        setIsProcessing(false);
-        toast({
-          title: "Processing Complete",
-          description: `Video processing ${message.data.status}. Total passengers: ${message.data.currentPassengers}`,
-        });
+          if (data.status === 'completed' || data.status === 'failed') {
+            setIsProcessing(false);
+            toast({
+              title: "Processing Complete",
+              description: `Video processing ${data.status}. Total passengers: ${data.currentPassengers}`,
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Error polling job status:', error);
       }
-    };
+    }, 2000);
 
-    return () => ws.close();
-  }, [isConnected, toast]);
+    return () => clearInterval(interval);
+  }, [currentJobId, isProcessing, toast]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
