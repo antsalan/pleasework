@@ -392,20 +392,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/video/process-sample', async (req, res) => {
     try {
       const busId = req.body.busId || 'BUS-001';
-      const sampleVideoPath = 'test_1_1757778577870.mp4';
+      let sampleVideoPath = 'test_1_1757778577870.mp4';
       
       // Check if sample video exists
       if (!fs.existsSync(sampleVideoPath)) {
         // Try attached_assets folder
         const attachedPath = path.join('attached_assets', 'test_1_1757778577870.mp4');
-        if (!fs.existsSync(attachedPath)) {
-          return res.status(404).json({ message: 'Sample video not found' });
+        if (fs.existsSync(attachedPath)) {
+          sampleVideoPath = attachedPath;
+        } else {
+          return res.status(404).json({ message: 'Sample video not found. Looking for: test_1_1757778577870.mp4 or attached_assets/test_1_1757778577870.mp4' });
         }
       }
 
       const jobId = `${busId}-sample-${Date.now()}`;
       
-      activeJobs.set(jobId, {
+      const job = {
         busId,
         status: 'processing',
         videoPath: sampleVideoPath,
@@ -413,14 +415,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalIn: 0,
         totalOut: 0,
         currentPassengers: 0
+      };
+      
+      activeJobs.set(jobId, job);
+
+      // Start Python people counter script
+      const pythonProcess = spawn('python3', [
+        'people_counter_client.py',
+        '--bus-id', job.busId,
+        '--input', job.videoPath,
+        '--output', `output_${jobId}.avi`,
+        '--skip-frames', '30'
+      ]);
+
+      pythonProcess.stdout.on('data', (data) => {
+        const output = data.toString();
+        console.log(`Video processing [${jobId}]: ${output}`);
+        
+        // Parse output for passenger counts
+        const inMatch = output.match(/Total people moving in: (\d+)/);
+        const outMatch = output.match(/Total people moving out: (\d+)/);
+        
+        if (inMatch) job.totalIn = parseInt(inMatch[1]);
+        if (outMatch) job.totalOut = parseInt(outMatch[1]);
+        job.currentPassengers = job.totalIn - job.totalOut;
+
+        // Broadcast updates via WebSocket
+        broadcast({
+          type: 'video_processing_update',
+          data: {
+            jobId,
+            busId: job.busId,
+            totalIn: job.totalIn,
+            totalOut: job.totalOut,
+            currentPassengers: job.currentPassengers
+          }
+        });
+      });
+
+      pythonProcess.stderr.on('data', (data) => {
+        console.error(`Video processing error [${jobId}]: ${data}`);
+      });
+
+      pythonProcess.on('close', (code) => {
+        job.status = code === 0 ? 'completed' : 'failed';
+        job.completedAt = new Date();
+        
+        console.log(`Video processing [${jobId}] finished with code ${code}`);
+        
+        broadcast({
+          type: 'video_processing_complete',
+          data: {
+            jobId,
+            busId: job.busId,
+            status: job.status,
+            totalIn: job.totalIn,
+            totalOut: job.totalOut,
+            currentPassengers: job.currentPassengers
+          }
+        });
       });
 
       res.json({ 
         jobId, 
         message: 'Sample video processing started',
-        busId 
+        busId,
+        videoPath: sampleVideoPath
       });
     } catch (error) {
+      console.error('Error processing sample video:', error);
       res.status(500).json({ message: 'Failed to process sample video' });
     }
   });
