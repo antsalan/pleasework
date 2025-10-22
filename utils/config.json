@@ -1,0 +1,18 @@
+{
+    "Email_Send": "",
+    "Email_Receive": "",
+    "Email_Password": "",
+    "url": 0,
+    "ALERT": false,
+    "Threshold": 35,
+    "Thread": false,
+    "Log": false,
+    "Scheduler": false,
+    "Timer": false,
+    "server_url": "http://localhost:5000",
+    "update_interval": 5,
+    "confidence": 0.4,
+    "skip_frames": 30,
+    "max_disappeared": 50,
+    "max_distance": 50
+}
